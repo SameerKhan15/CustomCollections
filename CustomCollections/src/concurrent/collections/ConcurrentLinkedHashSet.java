@@ -1,6 +1,7 @@
 package concurrent.collections;
 
 import java.util.AbstractSet;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map;
@@ -111,23 +112,21 @@ public class ConcurrentLinkedHashSet<E> extends AbstractSet<E> {
 		}
 	}
 	
-	private class CustomIterator<E> implements Iterator<E> {
-		private RecordTuple<E>[] tuplesArray;
+	private class CustomIterator<T> implements Iterator<T> {
+		private ArrayList<RecordTuple<T>> tuplesArray = new ArrayList<>();
 		private int currentIndex = 0;
 		
-		public CustomIterator(Set<RecordTuple<E>> orderedElements) {
-			Object[] obj = orderedElements.toArray();
-			tuplesArray = new RecordTuple[obj.length];
+		public CustomIterator(Set<RecordTuple<T>> orderedElements) {
 			
-			for (int a = 0 ; a < obj.length ; a++) {
-				tuplesArray[a] = (RecordTuple<E>) obj[a];
+			for (RecordTuple<T> s : orderedElements) {
+				tuplesArray.add(s);
 			}
 		}
 
 		@Override
 		public boolean hasNext() {
-			while (currentIndex < tuplesArray.length) {
-				RecordTuple<E> element = tuplesArray[currentIndex];
+			while (currentIndex < tuplesArray.size()) {
+				RecordTuple<T> element = tuplesArray.get(currentIndex);
 				if (!element.value.isMarked()) {
 					return true;
 				}
@@ -137,11 +136,11 @@ public class ConcurrentLinkedHashSet<E> extends AbstractSet<E> {
 		}
 
 		@Override
-		public E next() {
+		public T next() {
 			if (!hasNext()) {
 				throw new NoSuchElementException();
 			}
-			return tuplesArray[currentIndex++].value.getReference();
+			return tuplesArray.get(currentIndex++).value.getReference();
 		}
 	}
 }

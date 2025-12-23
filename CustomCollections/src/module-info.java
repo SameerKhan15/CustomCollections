@@ -5,4 +5,5 @@
  * 
  */
 module Playground {
+	requires junit;
 }

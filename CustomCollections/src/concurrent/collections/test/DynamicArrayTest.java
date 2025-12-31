@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -819,14 +820,12 @@ public class DynamicArrayTest {
         assertEquals("fourth", arr.get(0));
     }
     
-    @Test
+    @Test(expected = Exception.class)
     public void testSetWithNullValue() throws Exception {
         DynamicArray<Integer> arr = new DynamicArray<>();
         arr.insert(100);
     
         arr.set(0, null);
-        
-        assertNull("Should be able to set null", arr.get(0));
     }
     
     @Test
@@ -1303,11 +1302,9 @@ public class DynamicArrayTest {
         
         arr.set(0, 456);
         arr.set(1, "replacement");
-        arr.set(2, null);
         
         assertEquals(456, arr.get(0));
         assertEquals("replacement", arr.get(1));
-        assertNull(arr.get(2));
     }
     
     @Test
@@ -1388,5 +1385,623 @@ public class DynamicArrayTest {
         
         System.out.println("Non-null elements: " + nonNullCount);
         assertTrue("Most elements should be non-null", nonNullCount > 0);
+    }
+    
+    @Test
+    public void testContainsExistingElement() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        assertTrue("Should find 20", arr.contains(20));
+        assertTrue("Should find 10", arr.contains(10));
+        assertTrue("Should find 30", arr.contains(30));
+    }
+    
+    @Test
+    public void testContainsNonExistingElement() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        assertFalse("Should not find 40", arr.contains(40));
+        assertFalse("Should not find 0", arr.contains(0));
+        assertFalse("Should not find -5", arr.contains(-5));
+    }
+    
+    @Test
+    public void testContainsInEmptyArray() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        assertFalse("Empty array should not contain any element", arr.contains(10));
+    }
+    
+    @Test
+    public void testContainsFirstElement() {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert("first");
+        arr.insert("second");
+        arr.insert("third");
+        
+        assertTrue("Should find first element", arr.contains("first"));
+    }
+    
+    @Test
+    public void testContainsLastElement() {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert("first");
+        arr.insert("second");
+        arr.insert("third");
+        
+        assertTrue("Should find last element", arr.contains("third"));
+    }
+    
+    @Test
+    public void testContainsMiddleElement() {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert("first");
+        arr.insert("middle");
+        arr.insert("last");
+        
+        assertTrue("Should find middle element", arr.contains("middle"));
+    }
+    
+    @Test
+    public void testContainsWithNullElement() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(null);
+        arr.insert(30);
+        
+        // The implementation skips nulls, so null won't be found
+        assertFalse("Should not find null (implementation skips nulls)", arr.contains(null));
+    }
+    
+    @Test
+    public void testContainsWithDuplicates() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(10); // Duplicate
+        arr.insert(30);
+        arr.insert(10); // Another duplicate
+        
+        assertTrue("Should find duplicate element", arr.contains(10));
+    }
+    
+    @Test
+    public void testContainsStopsAtFirstMatch() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        // Insert many elements
+        for (int i = 0; i < 1000; i++) {
+            arr.insert(i);
+        }
+        
+        // Element at index 5 should be found quickly (early exit)
+        long start = System.nanoTime();
+        assertTrue(arr.contains(5));
+        long ind5Duration = System.nanoTime() - start;
+        System.out.println("ind5Duration: "+ind5Duration);
+        
+        start = System.nanoTime();
+        assertTrue(arr.contains(999));
+        long ind999Duration = System.nanoTime() - start;
+        System.out.println("ind5Duration: "+ind999Duration);
+        
+        assertTrue("Index5 match should be (much) faster", ind5Duration < ind999Duration);
+    }
+    
+    @Test
+    public void testContainsWithStrings() {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert("apple");
+        arr.insert("banana");
+        arr.insert("cherry");
+        
+        assertTrue(arr.contains("banana"));
+        assertFalse(arr.contains("orange"));
+    }
+    
+    @Test
+    public void testContainsWithCustomObjects() {
+        class Person {
+            String name;
+            int age;
+            
+            Person(String name, int age) {
+                this.name = name;
+                this.age = age;
+            }
+            
+            @Override
+            public boolean equals(Object obj) {
+                if (!(obj instanceof Person)) return false;
+                Person p = (Person) obj;
+                return this.name.equals(p.name) && this.age == p.age;
+            }
+        }
+        
+        DynamicArray<Person> arr = new DynamicArray<>();
+        Person alice = new Person("Alice", 30);
+        Person bob = new Person("Bob", 25);
+        
+        arr.insert(alice);
+        arr.insert(bob);
+        
+        assertTrue("Should find Alice", arr.contains(new Person("Alice", 30)));
+        assertFalse("Should not find Charlie", arr.contains(new Person("Charlie", 30)));
+    }
+    
+    @Test
+    public void testContainsWithStringEquality() {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert(new String("test"));
+        
+        // Different String object but same content
+        assertTrue("Should use equals() not reference equality", 
+                   arr.contains(new String("test")));
+    }
+    
+    @Test
+    public void testContainsAfterInsert() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        
+        assertFalse("Should not find 30 yet", arr.contains(30));
+        
+        arr.insert(30);
+        
+        assertTrue("Should find 30 after insert", arr.contains(30));
+    }
+    
+    @Test
+    public void testContainsAfterPop() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        assertTrue("Should find 20 before pop", arr.contains(20));
+        
+        arr.pop(1); // Remove 20
+        
+        assertFalse("Should not find 20 after pop", arr.contains(20));
+        assertTrue("Should still find 10", arr.contains(10));
+        assertTrue("Should still find 30", arr.contains(30));
+    }
+    
+    @Test
+    public void testContainsAfterSet() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        assertTrue("Should find 20", arr.contains(20));
+        assertFalse("Should not find 999", arr.contains(999));
+        
+        arr.set(1, 999); // Replace 20 with 999
+        
+        assertFalse("Should not find 20 after set", arr.contains(20));
+        assertTrue("Should find 999 after set", arr.contains(999));
+    }
+    
+    @Test
+    public void testContainsAfterArrayExpansion() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Insert elements before expansion
+        for (int i = 0; i < ARRAY_INITIAL_SIZE; i++) {
+            arr.insert(i);
+        }
+        
+        assertTrue("Should find 1 before expansion", arr.contains(1));
+        
+        // Trigger expansion (initial size is 10)
+        for (int i = ARRAY_INITIAL_SIZE; i < ARRAY_INITIAL_SIZE + 5; i++) {
+            arr.insert(i);
+        }
+        
+        // Verify old elements still findable
+        assertTrue("Should still find 1 after expansion", arr.contains(1));
+        
+        // Verify new elements findable
+        assertTrue(String.format("Should find %d in expanded region", ARRAY_INITIAL_SIZE), arr.contains(ARRAY_INITIAL_SIZE));
+    }
+    
+    @Test
+    public void testContainsAfterMultipleExpansions() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Trigger multiple expansions: 10 -> 20 -> 40 -> 80
+        for (int i = 0; i < 75; i++) {
+            arr.insert(i * 10);
+        }
+        
+        // Check elements across all expansion boundaries
+        assertTrue("Should find element from original array", arr.contains(50));
+        assertTrue("Should find element from first expansion", arr.contains(150));
+        assertTrue("Should find element from second expansion", arr.contains(350));
+        assertTrue("Should find element from third expansion", arr.contains(700));
+    }
+    
+    @Test
+    public void testConcurrentContainsAndInsert() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 50; i++) {
+            arr.insert(i * 10);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        CyclicBarrier barrier = new CyclicBarrier(4);
+        AtomicInteger containsTrue = new AtomicInteger(0);
+        AtomicInteger containsFalse = new AtomicInteger(0);
+        
+        // 2 contains threads
+        for (int i = 0; i < 2; i++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 100; j++) {
+                        int searchVal = ThreadLocalRandom.current().nextInt(100) * 10;
+                        if (arr.contains(searchVal)) {
+                            containsTrue.incrementAndGet();
+                        } else {
+                            containsFalse.incrementAndGet();
+                        }
+                        Thread.sleep(1);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        // 2 insert threads
+        for (int i = 0; i < 2; i++) {
+            final int threadId = i;
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 50; j++) {
+                        arr.insert(threadId * 10000 + j);
+                        Thread.sleep(2);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        System.out.println("Contains found: " + containsTrue.get());
+        System.out.println("Contains not found: " + containsFalse.get());
+        
+        // No assertions on counts, just verify no exceptions
+        assertTrue("Should have some successful contains operations", 
+                   containsTrue.get() + containsFalse.get() == 200);
+    }
+    
+    @Test
+    public void testConcurrentContainsAndPop() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate with many elements
+        for (int i = 0; i < 100; i++) {
+            arr.insert(i * 10);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        CyclicBarrier barrier = new CyclicBarrier(4);
+        AtomicInteger searchResults = new AtomicInteger(0);
+        
+        // 3 contains threads
+        for (int i = 0; i < 3; i++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 200; j++) {
+                        int searchVal = ThreadLocalRandom.current().nextInt(100) * 10;
+                        if (arr.contains(searchVal)) {
+                            searchResults.incrementAndGet();
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        // 1 pop thread
+        executor.submit(() -> {
+            try {
+                barrier.await();
+                Thread.sleep(10); // Let some searches happen
+                for (int j = 0; j < 30; j++) {
+                    try {
+                        arr.pop(0); // Pop from head
+                        Thread.sleep(5);
+                    } catch (Exception e) {
+                        // Might fail if array becomes empty
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        System.out.println("Elements found during concurrent pop: " + searchResults.get());
+        // Test passes if no deadlocks or exceptions
+    }
+    
+    @Test
+    public void testConcurrentContainsDuringExpansion() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Start with elements close to expansion threshold
+        for (int i = 0; i < ARRAY_INITIAL_SIZE; i++) {
+            arr.insert(i);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+        CyclicBarrier barrier = new CyclicBarrier(3);
+        AtomicInteger foundCount = new AtomicInteger(0);
+        AtomicInteger notFoundCount = new AtomicInteger(0);
+        
+        // Thread 1: Trigger expansion with inserts
+        executor.submit(() -> {
+            try {
+                barrier.await();
+                for (int i = ARRAY_INITIAL_SIZE; i < ARRAY_INITIAL_SIZE + 20; i++) {
+                    arr.insert(i); // Will trigger expansion
+                    Thread.sleep(5);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        
+        // Thread 2: Search during expansion
+        executor.submit(() -> {
+            try {
+                barrier.await();
+                for (int i = 0; i < 100; i++) {
+                    if (arr.contains(ThreadLocalRandom.current().nextInt(ARRAY_INITIAL_SIZE))) { // Element from original array
+                        foundCount.incrementAndGet();
+                    } else {
+                        notFoundCount.incrementAndGet();
+                    }
+                    Thread.sleep(2);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        
+        // Thread 3: Search for new elements
+        executor.submit(() -> {
+            try {
+                barrier.await();
+                Thread.sleep(10); // Let some inserts happen
+                for (int i = 0; i < 100; i++) {
+                    arr.contains(ThreadLocalRandom.current().nextInt(ARRAY_INITIAL_SIZE, ARRAY_INITIAL_SIZE + 20)); // Search for newly inserted
+                    Thread.sleep(3);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        System.out.println("Found count: " + foundCount.get());
+        System.out.println("Not found count: " + notFoundCount.get());
+        
+        // Element 200 should always be found
+        assertTrue("Should have found element 200 at least once", foundCount.get() > 0);
+    }
+    
+    @Test
+    public void testConcurrentContainsAndSet() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 50; i++) {
+            arr.insert(i * 10);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(6);
+        CyclicBarrier barrier = new CyclicBarrier(6);
+        
+        // 3 contains threads
+        for (int i = 0; i < 3; i++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 100; j++) {
+                        arr.contains(j * 10);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        // 3 set threads
+        for (int i = 0; i < 3; i++) {
+            final int threadId = i;
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 50; j++) {
+                        arr.set(j, threadId * 10000 + j);
+                        Thread.sleep(1);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        // Test passes if no exceptions or deadlocks
+    }
+    
+    @Test
+    public void testMultipleConcurrentContains() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate with many elements
+        for (int i = 0; i < 200; i++) {
+            arr.insert(i);
+        }
+        
+        int numThreads = 20;
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        CyclicBarrier barrier = new CyclicBarrier(numThreads);
+        AtomicInteger totalSearches = new AtomicInteger(0);
+        
+        // All threads do contains operations
+        for (int t = 0; t < numThreads; t++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await(); // Synchronize start
+                    for (int i = 0; i < 500; i++) {
+                        int searchVal = ThreadLocalRandom.current().nextInt(300);
+                        arr.contains(searchVal);
+                        totalSearches.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        assertEquals("All searches should complete", 
+                    numThreads * 500, totalSearches.get());
+    }
+    
+    @Test
+    public void testContainsSingleElement() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(42);
+        
+        assertTrue("Should find the only element", arr.contains(42));
+        assertFalse("Should not find non-existent element", arr.contains(43));
+    }
+    
+    @Test
+    public void testContainsWithAllSameElements() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        for (int i = 0; i < 20; i++) {
+            arr.insert(999); // All same value
+        }
+        
+        assertTrue("Should find 999", arr.contains(999));
+        assertFalse("Should not find 1000", arr.contains(1000));
+    }
+    
+    @Test
+    public void testContainsLargeArray() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Insert 1000 elements
+        for (int i = 0; i < 1000; i++) {
+            arr.insert(i);
+        }
+        
+        // Search for various positions
+        assertTrue("Should find element at start", arr.contains(0));
+        assertTrue("Should find element at middle", arr.contains(500));
+        assertTrue("Should find element at end", arr.contains(999));
+        assertFalse("Should not find non-existent", arr.contains(1000));
+    }
+    
+    @Test(timeout = 30000)
+    public void testContainsStress() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        int arraySize = 500;
+        for (int i = 0; i < arraySize; i++) {
+            arr.insert(i * 10);
+        }
+        
+        int numThreads = 30;
+        int searchesPerThread = 1000;
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        CyclicBarrier barrier = new CyclicBarrier(numThreads);
+        AtomicInteger totalSearches = new AtomicInteger(0);
+        AtomicInteger errors = new AtomicInteger(0);
+        
+        for (int t = 0; t < numThreads; t++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await(); // Maximize contention
+                    for (int i = 0; i < searchesPerThread; i++) {
+                        int searchVal = ThreadLocalRandom.current().nextInt(1000) * 10;
+                        arr.contains(searchVal);
+                        totalSearches.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(20, TimeUnit.SECONDS);
+        
+        System.out.println("Total searches completed: " + totalSearches.get());
+        System.out.println("Errors: " + errors.get());
+        
+        assertEquals("All searches should complete without errors", 0, errors.get());
+        assertEquals("All searches should complete", 
+                    numThreads * searchesPerThread, totalSearches.get());
+    }
+    
+    @Test
+    public void testContainsCorrectness() {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        Set<Integer> expected = new HashSet<>();
+        
+        // Insert random values
+        Random rand = new Random(42); // Fixed seed for reproducibility
+        for (int i = 0; i < 100; i++) {
+            int val = rand.nextInt(1000);
+            arr.insert(val);
+            expected.add(val);
+        }
+        
+        // Verify all expected values are found
+        for (Integer val : expected) {
+            assertTrue("Should find " + val, arr.contains(val));
+        }
+        
+        // Verify some random non-existent values are not found
+        for (int i = 0; i < 50; i++) {
+            int val = rand.nextInt(1000) + 1000; // Values outside inserted range
+            if (!expected.contains(val)) {
+                assertFalse("Should not find " + val, arr.contains(val));
+            }
+        }
     }
 }

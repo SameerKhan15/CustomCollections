@@ -173,13 +173,16 @@ public class DynamicArray<T> {
 	}
 	
 	/*
-	 * The set operation updates the specified slot with the supplied element. 
+	 * The set operation updates the specified slot with the supplied element. Does NOT accept null. For removing entries, use the remove method.
 	 * Since this is an update operation, an element has to exists at the specified location. 
 	 * 	Throws an exception if its not the case.
 	 * 
 	 * Set is a concurrent operation.
 	 */
 	public void set(int i, T val) throws Exception {
+		if (val == null) {
+			throw new Exception("Null is not a valid input");
+		}
 		try {
 			rwLock.readLock().lock();
 			
@@ -191,6 +194,30 @@ public class DynamicArray<T> {
 		} finally {
 			rwLock.readLock().unlock();
 		}
+	}
+	
+	/*
+	 * True if the array contains the element. Returns upon matching the first occurrence
+	 * False if the array does not contain the element.
+	 */
+	public boolean contains(T element) {
+		//Shared lock to prevent structural changes to the array during traversal
+		rwLock.readLock().lock();
+		try {
+			int numberOfElements = getNumberOfElements();
+			for (int i = 0 ; i < numberOfElements ; i++) {
+				if (array[i].get() != null) {
+					//Value equality check
+					if (array[i].get().equals(element)) {
+						return true;
+					}
+				}
+			}
+		} finally {
+			rwLock.readLock().unlock();
+		}
+		
+		return false;
 	}
 	
 	private class CustomIterator<T> implements Iterator<T> {

@@ -58,7 +58,29 @@ public class DynamicArray<T> {
 			 * All interleaving insert threads meeting this condition will enter #extendArray method. 
 			 */
 			if (currIndexSlot >= array.length) {
-				extendArray(currIndexSlot);
+				/*
+				 * The array extension is a serialized operation. Therefore the shared lock needs to be upgraded to exclusive lock.
+				 * 
+				 * Since there isn't (atomic) upgrade semantics available in java for this, we first release the shared lock and then acquire an exclusive lock.
+				 *  This is safe from effects of any race conditions where the thread releasing the shared lock may not get the exclusive lock in the first attempt. 
+				 * 
+				 * The thread acquiring the exclusive lock checks the array condition again (while holding the exclusive lock) in order to examine 
+				 *  whether an another thread have already expanded the array such that the allocation for this insert can be satisfied without further expansion.
+				 * 
+				 * For expansion, the thread (under exclusive lock) doubles the array from its allocated index slot number.
+				 * 	It down-grades the lock to a shared state post expansion operation.
+				 * 
+				 * For non-expansion (where some other thread already expanded the array), 
+				 *  the operation becomes a no-op and the thread simply down-grades the lock to a shared state.
+				 */
+				rwLock.readLock().unlock();
+				rwLock.writeLock().lock();
+				try {
+					extendArray(currIndexSlot);
+				} finally {
+					rwLock.readLock().lock();
+					rwLock.writeLock().unlock();
+				}
 			}
 			
 			array[currIndexSlot] = new AtomicReference<>(val);
@@ -102,35 +124,14 @@ public class DynamicArray<T> {
 		return newArray;
 	}
 	
-	private void extendArray(int currIndexSlot) {
-		/*
-		 * The array extension is a serialized operation. Therefore the shared lock needs to be upgraded to exclusive lock.
-		 * 
-		 * Since there isn't (atomic) upgrade semantics available in java for this, we first release the shared lock and then acquire an exclusive lock.
-		 *  This is safe from effects of any race conditions where the thread releasing the shared lock may not get the exclusive lock in the first attempt. 
-		 * 
-		 * The thread acquiring the exclusive lock checks the array condition again (while holding the exclusive lock) in order to examine 
-		 *  whether an another thread have already expanded the array such that the allocation for this insert can be satisfied without further expansion.
-		 * 
-		 * For expansion, the thread (under exclusive lock) doubles the array from its allocated index slot number.
-		 * 	It down-grades the lock to a shared state post expansion operation.
-		 * 
-		 * For non-expansion (where some other thread already expanded the array), 
-		 *  the operation becomes a no-op and the thread simply down-grades the lock to a shared state.
-		 */
-		rwLock.readLock().unlock();
-		rwLock.writeLock().lock();
-		try {
-			if (currIndexSlot >= array.length) {
-				AtomicReference<T>[] newArray = initArray(currIndexSlot * 2);
-				for (int i = 0 ; i < array.length ; i++) {
-					newArray[i].set(array[i].get());
-				}
-				array = newArray;
+	//CAUTION: This operation should always be performed under exclusive lock 
+	private void extendArray(int currIndexSlot) {	
+		if (currIndexSlot >= array.length) {
+			AtomicReference<T>[] newArray = initArray(currIndexSlot * 2);
+			for (int i = 0 ; i < array.length ; i++) {
+				newArray[i].set(array[i].get());	
 			}
-		} finally {
-			rwLock.readLock().lock();
-			rwLock.writeLock().unlock();
+			array = newArray;	
 		}
 	}
 	
@@ -218,6 +219,43 @@ public class DynamicArray<T> {
 		}
 		
 		return false;
+	}
+	
+	/*
+	 * Inserts an element at the specified index location IF it already contains an element. 
+	 * The existing element (along with any other right side elements will be right shifted).
+	 * This operation is NOT meant for inserting elements at a new location where element does not exist.
+	 * Use insert(T val) method to insert elements at (front) tip of the array. 
+	 */
+	public void insert(int i, T val) throws Exception {
+		if (val == null) {
+			throw new Exception("val cannot be null");
+		}
+		
+		/* 
+		 * Since this operation requires right-shifting elements, 
+		 * which is a structural change, we will do so under exclusive lock. 
+		 */
+		rwLock.writeLock().lock();
+		try {
+			if (i >= getNumberOfElements()) {
+				throw new Exception("Out of bound index location");
+			}
+			
+			// Check if there is space in the array to do a right shift
+			if (getNumberOfElements() == array.length) {
+				extendArray(array.length);
+			}
+			
+			for (int a = (getNumberOfElements() - 1) ; a >= i ; a--) {
+				//right shift existing elements by 1
+				array[a+1] = array[a];
+			}
+			array[i] = new AtomicReference<>(val);
+			nextAvailableSlot.incrementAndGet();
+		} finally {
+			rwLock.writeLock().unlock();
+		}
 	}
 	
 	private class CustomIterator<T> implements Iterator<T> {

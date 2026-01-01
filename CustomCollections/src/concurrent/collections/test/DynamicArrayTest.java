@@ -597,7 +597,6 @@ public class DynamicArrayTest {
         executor.awaitTermination(30, TimeUnit.SECONDS);
         
         int expectedSize = 20 + insertCount.get() - popCount.get();
-        //int expectedSize = 120;
         assertEquals("Array size mismatch after concurrent ops", expectedSize, arr.getNumberOfElements());
         
         // Verify no nulls in valid range
@@ -2003,5 +2002,728 @@ public class DynamicArrayTest {
                 assertFalse("Should not find " + val, arr.contains(val));
             }
         }
+    }
+    
+    @Test
+    public void testInsertAtBeginning() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        arr.insert(0, 999); // Insert at beginning
+        
+        assertEquals(4, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(999), arr.get(0));
+        assertEquals(Integer.valueOf(10), arr.get(1));  // Shifted right
+        assertEquals(Integer.valueOf(20), arr.get(2));  // Shifted right
+        assertEquals(Integer.valueOf(30), arr.get(3));  // Shifted right
+    }
+    
+    @Test
+    public void testInsertAtMiddle() throws Exception {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert("A");
+        arr.insert("B");
+        arr.insert("C");
+        arr.insert("D");
+        
+        arr.insert(2, "X"); // Insert at middle
+        
+        assertEquals(5, arr.getNumberOfElements());
+        assertEquals("A", arr.get(0));
+        assertEquals("B", arr.get(1));
+        assertEquals("X", arr.get(2));  // New element
+        assertEquals("C", arr.get(3));  // Shifted right
+        assertEquals("D", arr.get(4));  // Shifted right
+    }
+    
+    @Test
+    public void testInsertOnFullArray() throws Exception {
+    	DynamicArray<Integer> arr = new DynamicArray<>();
+    	for (int a = 0 ; a < ARRAY_INITIAL_SIZE ; a++) {
+    		arr.insert(a);
+    	}
+    	
+    	arr.insert(0,Integer.MAX_VALUE);
+    	assertEquals(ARRAY_INITIAL_SIZE + 1, arr.getNumberOfElements());
+    	assertEquals(Integer.valueOf(Integer.MAX_VALUE), arr.get(0));
+    	assertEquals(Integer.valueOf(ARRAY_INITIAL_SIZE - 1), arr.get(ARRAY_INITIAL_SIZE));
+    }
+    
+    @Test
+    public void testInsertAtLastValidPosition() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        // Insert at last valid index (index 2, size-1)
+        arr.insert(2, 999);
+        
+        assertEquals(4, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(10), arr.get(0));
+        assertEquals(Integer.valueOf(20), arr.get(1));
+        assertEquals(Integer.valueOf(999), arr.get(2));  // New element
+        assertEquals(Integer.valueOf(30), arr.get(3));   // Shifted right
+    }
+    
+    @Test
+    public void testMultipleInsertsAtSameIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        arr.insert(1, 100); // [10, 100, 20, 30]
+        arr.insert(1, 200); // [10, 200, 100, 20, 30]
+        arr.insert(1, 300); // [10, 300, 200, 100, 20, 30]
+        
+        assertEquals(6, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(10), arr.get(0));
+        assertEquals(Integer.valueOf(300), arr.get(1));
+        assertEquals(Integer.valueOf(200), arr.get(2));
+        assertEquals(Integer.valueOf(100), arr.get(3));
+        assertEquals(Integer.valueOf(20), arr.get(4));
+        assertEquals(Integer.valueOf(30), arr.get(5));
+    }
+    
+    @Test
+    public void testInsertIncreasesSize() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        
+        int sizeBefore = arr.getNumberOfElements();
+        arr.insert(0, 999);
+        int sizeAfter = arr.getNumberOfElements();
+        
+        assertEquals("Size should increase by 1", sizeBefore + 1, sizeAfter);
+    }
+    
+    @Test
+    public void testInsertAtIndexZeroMultipleTimes() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(100);
+        
+        // Insert at beginning repeatedly - builds a reverse list
+        for (int i = 1; i <= 5; i++) {
+            arr.insert(0, i);
+        }
+        
+        // Should have: [5, 4, 3, 2, 1, 100]
+        assertEquals(6, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(5), arr.get(0));
+        assertEquals(Integer.valueOf(4), arr.get(1));
+        assertEquals(Integer.valueOf(3), arr.get(2));
+        assertEquals(Integer.valueOf(2), arr.get(3));
+        assertEquals(Integer.valueOf(1), arr.get(4));
+        assertEquals(Integer.valueOf(100), arr.get(5));
+    }
+    
+    @Test
+    public void testShiftingCorrectness() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        // Create ordered sequence
+        for (int i = 0; i < 5; i++) {
+            arr.insert(i * 10);
+        }
+        // [0, 10, 20, 30, 40]
+        
+        arr.insert(2, 999); // Insert at index 2
+        // Should be: [0, 10, 999, 20, 30, 40]
+        
+        assertEquals(6, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(0), arr.get(0));
+        assertEquals(Integer.valueOf(10), arr.get(1));
+        assertEquals(Integer.valueOf(999), arr.get(2));
+        assertEquals(Integer.valueOf(20), arr.get(3));  // Was at index 2
+        assertEquals(Integer.valueOf(30), arr.get(4));  // Was at index 3
+        assertEquals(Integer.valueOf(40), arr.get(5));  // Was at index 4
+    }
+    
+    @Test(expected = Exception.class)
+    public void testInsertWithNullValue() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        
+        arr.insert(0, null); // Should throw exception
+    }
+    
+    @Test(expected = Exception.class)
+    public void testInsertAtOutOfBoundsIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        
+        arr.insert(5, 999); // Index 5 is >= getNumberOfElements()
+    }
+    
+    @Test(expected = Exception.class)
+    public void testInsertAtNegativeIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        
+        arr.insert(-1, 999);
+    }
+    
+    @Test(expected = Exception.class)
+    public void testInsertAtSizeIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        
+        // Index 2 equals getNumberOfElements(), should fail
+        arr.insert(2, 999);
+    }
+    
+    @Test(expected = Exception.class)
+    public void testInsertInEmptyArray() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        arr.insert(0, 999); // No elements exist
+    }
+    
+    @Test
+    public void testInsertAtBoundaryIndices() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        for (int i = 0; i < 10; i++) {
+            arr.insert(i);
+        }
+        
+        // Test at index 0 (beginning)
+        arr.insert(0, 888);
+        assertEquals(Integer.valueOf(888), arr.get(0));
+        
+        // Test at last valid index (size-1)
+        int lastIndex = arr.getNumberOfElements() - 1;
+        arr.insert(lastIndex, 999);
+        assertEquals(Integer.valueOf(999), arr.get(lastIndex));
+    }
+    
+    @Test
+    public void testInsertsWithExpansion() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Fill exactly to capacity
+        for (int i = 0; i < ARRAY_INITIAL_SIZE; i++) {
+            arr.insert(i);
+        }
+        
+        // This should trigger expansion
+        arr.insert(5, 999);
+        
+        assertEquals(ARRAY_INITIAL_SIZE+1, arr.getNumberOfElements());
+        
+        for (int i = 0; i < 9; i++) {
+            arr.insert(0, i * 1000);
+        }
+        
+        assertEquals(ARRAY_INITIAL_SIZE+10, arr.getNumberOfElements());
+    }
+    
+    @Test
+    public void testIteratorAfterInsertAtIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        for (int i = 0; i < 5; i++) {
+            arr.insert(i * 10);
+        }
+        
+        arr.insert(2, 999);
+        
+        List<Integer> collected = new ArrayList<>();
+        Iterator<Integer> iter = arr.iterator();
+        while (iter.hasNext()) {
+            collected.add(iter.next());
+        }
+        
+        assertEquals(Arrays.asList(0, 10, 999, 20, 30, 40), collected);
+    }
+    
+    @Test
+    public void testIteratorSnapshotBeforeInsertAtIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        for (int i = 0; i < 5; i++) {
+            arr.insert(i);
+        }
+        
+        // Create iterator before modification
+        Iterator<Integer> iterBefore = arr.iterator();
+        
+        // Modify array
+        arr.insert(2, 999);
+        
+        // Create iterator after modification
+        Iterator<Integer> iterAfter = arr.iterator();
+        
+        List<Integer> beforeValues = new ArrayList<>();
+        while (iterBefore.hasNext()) {
+            beforeValues.add(iterBefore.next());
+        }
+        
+        List<Integer> afterValues = new ArrayList<>();
+        while (iterAfter.hasNext()) {
+            afterValues.add(iterAfter.next());
+        }
+        
+        assertEquals("Before iterator should have 5 elements", 5, beforeValues.size());
+        assertEquals("After iterator should have 6 elements", 6, afterValues.size());
+        assertEquals(Arrays.asList(0, 1, 2, 3, 4), beforeValues);
+        assertEquals(Arrays.asList(0, 1, 999, 2, 3, 4), afterValues);
+    }
+    
+    @Test
+    public void testInsertAtIndexThenGet() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        arr.insert(1, 999);
+        
+        assertEquals(Integer.valueOf(999), arr.get(1));
+        assertEquals(Integer.valueOf(20), arr.get(2)); // Original element shifted
+    }
+    
+    @Test
+    public void testInsertAtIndexThenSet() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        arr.insert(1, 999);
+        arr.set(1, 888); // Modify the newly inserted element
+        
+        assertEquals(Integer.valueOf(888), arr.get(1));
+    }
+    
+    @Test
+    public void testInsertAtIndexThenPop() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        arr.insert(1, 999);  // [10, 999, 20, 30]
+        arr.pop(1);          // Remove 999: [10, 20, 30]
+        
+        assertEquals(3, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(10), arr.get(0));
+        assertEquals(Integer.valueOf(20), arr.get(1));
+        assertEquals(Integer.valueOf(30), arr.get(2));
+    }
+    
+    @Test
+    public void testInsertAtIndexThenContains() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        assertFalse("Should not find 999 yet", arr.contains(999));
+        
+        arr.insert(1, 999);
+        
+        assertTrue("Should find 999 after insert", arr.contains(999));
+        assertTrue("Should still find original elements", arr.contains(20));
+    }
+    
+    @Test
+    public void testMixedInsertOperations() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Use regular insert
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        // [10, 20, 30]
+        
+        // Use insert at index
+        arr.insert(1, 15); // [10, 15, 20, 30]
+        arr.insert(3, 25); // [10, 15, 20, 25, 30]
+        
+        // More regular inserts
+        arr.insert(40); // [10, 15, 20, 25, 30, 40]
+        
+        assertEquals(6, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(10), arr.get(0));
+        assertEquals(Integer.valueOf(15), arr.get(1));
+        assertEquals(Integer.valueOf(20), arr.get(2));
+        assertEquals(Integer.valueOf(25), arr.get(3));
+        assertEquals(Integer.valueOf(30), arr.get(4));
+        assertEquals(Integer.valueOf(40), arr.get(5));
+    }
+    
+    @Test
+    public void testConcurrentInsertAtIndexAndRegularInsert() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 20; i++) {
+            arr.insert(i * 10);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        CyclicBarrier barrier = new CyclicBarrier(4);
+        AtomicInteger errors = new AtomicInteger(0);
+        AtomicInteger indexInserts = new AtomicInteger(0);
+        AtomicInteger regularInserts = new AtomicInteger(0);
+        
+        // 2 threads doing insert at index
+        for (int i = 0; i < 2; i++) {
+            final int threadId = i;
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 10; j++) {
+                        try {
+                            int size = arr.getNumberOfElements();
+                            if (size > 0) {
+                                int idx = ThreadLocalRandom.current().nextInt(size);
+                                arr.insert(idx, threadId * 10000 + j);
+                                indexInserts.incrementAndGet();
+                            }
+                            Thread.sleep(5);
+                        } catch (Exception e) {
+                            // Index might become invalid due to concurrent modifications
+                        }
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        // 2 threads doing regular insert (append)
+        for (int i = 0; i < 2; i++) {
+            final int threadId = i + 100;
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 10; j++) {
+                        arr.insert(threadId * 10000 + j);
+                        regularInserts.incrementAndGet();
+                        Thread.sleep(3);
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        System.out.println("Index inserts: " + indexInserts.get());
+        System.out.println("Regular inserts: " + regularInserts.get());
+        System.out.println("Final size: " + arr.getNumberOfElements());
+        
+        assertEquals("No errors should occur", 0, errors.get());
+        assertEquals("Final size should match operations", 
+                    20 + indexInserts.get() + regularInserts.get(), 
+                    arr.getNumberOfElements());
+    }
+    
+    @Test
+    public void testConcurrentInsertAtIndexAndPop() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 50; i++) {
+            arr.insert(i * 10);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        CyclicBarrier barrier = new CyclicBarrier(4);
+        AtomicInteger insertCount = new AtomicInteger(0);
+        AtomicInteger popCount = new AtomicInteger(0);
+        
+        // 2 insert at index threads
+        for (int i = 0; i < 2; i++) {
+            final int threadId = i;
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 15; j++) {
+                        try {
+                            int size = arr.getNumberOfElements();
+                            if (size > 0) {
+                                int idx = ThreadLocalRandom.current().nextInt(size);
+                                arr.insert(idx, threadId * 10000 + j);
+                                insertCount.incrementAndGet();
+                            }
+                            Thread.sleep(3);
+                        } catch (Exception e) {
+                            // Index might become invalid
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        // 2 pop threads
+        for (int i = 0; i < 2; i++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    Thread.sleep(10); // Let some inserts happen first
+                    for (int j = 0; j < 10; j++) {
+                        try {
+                            int size = arr.getNumberOfElements();
+                            if (size > 0) {
+                                int idx = ThreadLocalRandom.current().nextInt(size);
+                                arr.pop(idx);
+                                popCount.incrementAndGet();
+                            }
+                            Thread.sleep(5);
+                        } catch (Exception e) {
+                            // Array might be empty or index invalid
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        int expectedSize = 50 + insertCount.get() - popCount.get();
+        assertEquals("Size should match operations", expectedSize, arr.getNumberOfElements());
+        
+        // Verify no nulls
+        for (int i = 0; i < arr.getNumberOfElements(); i++) {
+            assertNotNull("Should not have nulls at index " + i, arr.get(i));
+        }
+    }
+    
+    @Test
+    public void testConcurrentInsertAtIndexAndGet() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 30; i++) {
+            arr.insert(i * 10);
+        }
+        
+        ExecutorService executor = Executors.newFixedThreadPool(6);
+        CyclicBarrier barrier = new CyclicBarrier(6);
+        AtomicInteger readErrors = new AtomicInteger(0);
+        AtomicInteger insertSuccesses = new AtomicInteger(0);
+        
+        // 3 insert at index threads
+        for (int i = 0; i < 3; i++) {
+            final int threadId = i;
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 20; j++) {
+                        try {
+                            int size = arr.getNumberOfElements();
+                            if (size > 0) {
+                                int idx = ThreadLocalRandom.current().nextInt(size);
+                                arr.insert(idx, threadId * 10000 + j);
+                                insertSuccesses.incrementAndGet();
+                            }
+                            Thread.sleep(2);
+                        } catch (Exception e) {
+                            // Index might become invalid
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        // 3 reader threads
+        for (int i = 0; i < 3; i++) {
+            executor.submit(() -> {
+                try {
+                    barrier.await();
+                    for (int j = 0; j < 100; j++) {
+                        try {
+                            int size = arr.getNumberOfElements();
+                            if (size > 0) {
+                                int idx = ThreadLocalRandom.current().nextInt(size);
+                                Integer val = arr.get(idx);
+                                if (val == null) {
+                                    readErrors.incrementAndGet();
+                                }
+                            }
+                        } catch (Exception e) {
+                            // Index might become invalid due to concurrent operations
+                        }
+                        Thread.sleep(1);
+                    }
+                } catch (Exception e) {
+                    readErrors.incrementAndGet();
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(30, TimeUnit.SECONDS);
+        
+        System.out.println("Successful inserts: " + insertSuccesses.get());
+        System.out.println("Read errors (nulls): " + readErrors.get());
+        
+        assertEquals("Should not read null values", 0, readErrors.get());
+    }
+    
+    @Test
+    public void testConcurrentInsertAtSameIndex() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 10; i++) {
+            arr.insert(i * 10);
+        }
+        
+        int numThreads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        CyclicBarrier barrier = new CyclicBarrier(numThreads);
+        AtomicInteger successCount = new AtomicInteger(0);
+        
+        // All threads try to insert at index 5
+        for (int t = 0; t < numThreads; t++) {
+            final int threadId = t;
+            executor.submit(() -> {
+                try {
+                    barrier.await(); // Synchronize start for maximum contention
+                    arr.insert(5, threadId * 1000);
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+        
+        assertEquals("All inserts should succeed", numThreads, successCount.get());
+        assertEquals("Size should increase by numThreads", 
+                    10 + numThreads, arr.getNumberOfElements());
+        
+        // Verify no nulls
+        for (int i = 0; i < arr.getNumberOfElements(); i++) {
+            assertNotNull("No nulls at index " + i, arr.get(i));
+        }
+    }
+    
+    @Test
+    public void testInsertAtSingleElementArray() throws Exception {
+        DynamicArray<String> arr = new DynamicArray<>();
+        arr.insert("only");
+        
+        arr.insert(0, "first");
+        
+        assertEquals(2, arr.getNumberOfElements());
+        assertEquals("first", arr.get(0));
+        assertEquals("only", arr.get(1));
+    }
+    
+    @Test
+    public void testInsertPreservesOrder() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        for (int i = 0; i < 10; i++) {
+            arr.insert(i);
+        }
+        
+        arr.insert(5, 999);
+        
+        // Check order is preserved
+        assertEquals(Integer.valueOf(0), arr.get(0));
+        assertEquals(Integer.valueOf(4), arr.get(4));
+        assertEquals(Integer.valueOf(999), arr.get(5));
+        assertEquals(Integer.valueOf(5), arr.get(6));
+        assertEquals(Integer.valueOf(9), arr.get(10));
+    }
+    
+    @Test
+    public void testInsertDoesNotAffectUnrelatedElements() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        for (int i = 0; i < 10; i++) {
+            arr.insert(i * 100);
+        }
+        
+        // Insert at middle
+        arr.insert(5, 9999);
+        
+        // Elements before insertion point should be unchanged
+        for (int i = 0; i < 5; i++) {
+            assertEquals(Integer.valueOf(i * 100), arr.get(i));
+        }
+    }
+    
+    @Test(timeout = 60000)
+    public void testInsertAtIndexStress() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 100; i++) {
+            arr.insert(i * 10);
+        }
+        
+        int numThreads = 20;
+        int insertsPerThread = 50;
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        CyclicBarrier barrier = new CyclicBarrier(numThreads);
+        AtomicInteger successfulInserts = new AtomicInteger(0);
+        AtomicInteger errors = new AtomicInteger(0);
+        
+        for (int t = 0; t < numThreads; t++) {
+            final int threadId = t;
+            executor.submit(() -> {
+                try {
+                    barrier.await(); // Maximize contention
+                    for (int i = 0; i < insertsPerThread; i++) {
+                        try {
+                            int size = arr.getNumberOfElements();
+                            if (size > 0) {
+                                int idx = ThreadLocalRandom.current().nextInt(size);
+                                arr.insert(idx, threadId * 100000 + i);
+                                successfulInserts.incrementAndGet();
+                            }
+                        } catch (Exception e) {
+                            // Index might become invalid during concurrent operations
+                        }
+                    }
+                } catch (Exception e) {
+                    errors.incrementAndGet();
+                    e.printStackTrace();
+                }
+            });
+        }
+        
+        executor.shutdown();
+        executor.awaitTermination(40, TimeUnit.SECONDS);
+        
+        System.out.println("Successful inserts: " + successfulInserts.get());
+        System.out.println("Final array size: " + arr.getNumberOfElements());
+        System.out.println("Errors: " + errors.get());
+        
+        assertEquals("Thread execution errors", 0, errors.get());
+        assertEquals("Size should match operations", 
+                    100 + successfulInserts.get(), arr.getNumberOfElements());
+        
+        // Verify no nulls in array
+        int nullCount = 0;
+        for (int i = 0; i < arr.getNumberOfElements(); i++) {
+            if (arr.get(i) == null) {
+                nullCount++;
+            }
+        }
+        
+        assertEquals("Should have no null values", 0, nullCount);
     }
 }

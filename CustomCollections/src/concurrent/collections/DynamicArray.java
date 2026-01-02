@@ -258,6 +258,35 @@ public class DynamicArray<T> {
 		}
 	}
 	
+	/*
+	 * Removes 1st instance of the element. Returns the index OR -1 if not found. 
+	 * The elements to the right are left shifted. 
+	 */
+	public int remove(T val) throws Exception {
+		if (val == null) {
+			throw new Exception("val cannot be null");
+		}
+		
+		//Elements left-shift is an array structural change operation and therefore is performed under exclusive lock 
+		rwLock.writeLock().lock();
+		try {
+			for (int a = 0 ; a < getNumberOfElements() ; a++) {
+				if (array[a].get() != null && array[a].get().equals(val)) {
+					for (int b = a ; b < (getNumberOfElements() - 1) ; b++) {
+						array[b] = array[b+1];
+					}
+					array[getNumberOfElements() - 1] = new AtomicReference<>();
+					nextAvailableSlot.decrementAndGet();
+					return a;
+				}
+			}
+		} finally {
+			rwLock.writeLock().unlock();
+		}
+		
+		return -1;
+	}
+	
 	private class CustomIterator<T> implements Iterator<T> {
 		private AtomicReference<T>[] iteratorArray;
 		private int currentIndex = 0;

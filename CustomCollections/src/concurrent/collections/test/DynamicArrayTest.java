@@ -2726,4 +2726,153 @@ public class DynamicArrayTest {
         
         assertEquals("Should have no null values", 0, nullCount);
     }
+    
+    @Test
+    public void testRemoveFromMiddle() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        arr.insert(40);
+        
+        int index = arr.remove(20);
+        
+        assertEquals(1, index);
+        assertEquals(3, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(10), arr.get(0));
+        assertEquals(Integer.valueOf(30), arr.get(1));
+        assertEquals(Integer.valueOf(40), arr.get(2));
+    }
+    
+    @Test
+    public void testRemoveFromBeginning() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        int index = arr.remove(10);
+        
+        assertEquals(0, index);
+        assertEquals(2, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(20), arr.get(0));
+        assertEquals(Integer.valueOf(30), arr.get(1));
+    }
+    
+    @Test
+    public void testRemoveFromEnd() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(30);
+        
+        int index = arr.remove(30);
+        
+        assertEquals(2, index);
+        assertEquals(2, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(10), arr.get(0));
+        assertEquals(Integer.valueOf(20), arr.get(1));
+    }
+    
+    @Test
+    public void testRemoveNotFound() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        
+        int index = arr.remove(99);
+        
+        assertEquals(-1, index);
+        assertEquals(2, arr.getNumberOfElements());
+    }
+    
+    @Test
+    public void testRemoveWithDuplicates() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.insert(20);
+        arr.insert(10);
+        arr.insert(30);
+        
+        int index = arr.remove(10);
+        
+        assertEquals(0, index);
+        assertEquals(3, arr.getNumberOfElements());
+        assertEquals(Integer.valueOf(20), arr.get(0));
+        assertEquals(Integer.valueOf(10), arr.get(1)); // Second 10 still there
+        assertEquals(Integer.valueOf(30), arr.get(2));
+    }
+
+    // Test 6: Remove null (should throw)
+    @Test(expected = Exception.class)
+    public void testRemoveNull() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(10);
+        arr.remove(null);
+    }
+    
+    @Test
+    public void testRemoveSingleElement() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        arr.insert(42);
+        
+        int index = arr.remove(42);
+        
+        assertEquals(0, index);
+        assertEquals(0, arr.getNumberOfElements());
+    }
+
+    // Test 8: Remove from empty array
+    @Test
+    public void testRemoveFromEmpty() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        int index = arr.remove(10);
+        
+        assertEquals(-1, index);
+        assertEquals(0, arr.getNumberOfElements());
+    }
+    
+    @Test
+    public void testConcurrentRemove() throws Exception {
+        DynamicArray<Integer> arr = new DynamicArray<>();
+        
+        // Pre-populate
+        for (int i = 0; i < 100; i++) {
+            arr.insert(i);
+        }
+        
+        int numThreads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        CountDownLatch latch = new CountDownLatch(numThreads);
+        AtomicInteger removeCount = new AtomicInteger(0);
+        
+        // Each thread removes different elements
+        for (int t = 0; t < numThreads; t++) {
+            final int threadId = t;
+            executor.submit(() -> {
+                try {
+                    for (int i = 0; i < 5; i++) {
+                        int val = threadId * 10 + i;
+                        if (val < 100) {
+                            int idx = arr.remove(val);
+                            if (idx != -1) {
+                                removeCount.incrementAndGet();
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        
+        latch.await(10, TimeUnit.SECONDS);
+        executor.shutdown();
+        
+        assertEquals("Should have removed 50 elements", 50, removeCount.get());
+        assertEquals("Array size should be 50", 50, arr.getNumberOfElements());
+    }
 }
